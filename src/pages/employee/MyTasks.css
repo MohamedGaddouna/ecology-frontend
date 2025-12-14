@@ -1,0 +1,10 @@
+.task-card {
+  background: white;
+  padding: 16px;
+  border-radius: 18px;
+}
+
+.task-card img {
+  width: 100%;
+  margin-bottom: 10px;
+}

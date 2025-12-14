@@ -1,0 +1,14 @@
+.task-card {
+  background: white;
+  padding: 16px;
+  border-radius: 18px;
+  margin-bottom: 16px;
+}
+
+.pending {
+  border-left: 6px solid orange;
+}
+
+.done {
+  border-left: 6px solid #22c55e;
+}

@@ -1,0 +1,21 @@
+textarea, input {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+}
+
+.secondary-btn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  background: #e5e7eb;
+  font-weight: 600;
+}
+
+.coords {
+  font-size: 14px;
+  color: #16a34a;
+}

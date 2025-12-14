@@ -1,0 +1,39 @@
+.page {
+  padding: 24px;
+}
+
+.assign-card {
+  background: white;
+  border-radius: 22px;
+  padding: 26px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+}
+
+.assign-card h2 {
+  font-size: 24px;
+  margin-bottom: 20px;
+}
+
+select {
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid #d1d5db;
+  margin-bottom: 20px;
+  font-size: 15px;
+}
+
+.primary-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary-btn:hover {
+  opacity: 0.95;
+}

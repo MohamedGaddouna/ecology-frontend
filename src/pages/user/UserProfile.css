@@ -1,0 +1,38 @@
+.page {
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  background: white;
+  border-radius: 22px;
+  padding: 26px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.08);
+}
+
+.card h2 {
+  font-size: 26px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.card p {
+  font-size: 16px;
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f4f6fb;
+  display: flex;
+  justify-content: space-between;
+}
+
+.card p:last-child {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: white;
+  font-weight: 700;
+  justify-content: center;
+}
