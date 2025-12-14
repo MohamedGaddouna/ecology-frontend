@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "./CreateTask.css";
+import "./ReportTrash.css";
 
-interface TaskFormData {
+interface ReportFormData {
   title: string;
   description: string;
   picture: File | null;
@@ -10,13 +10,12 @@ interface TaskFormData {
   latitude: string;
   longitude: string;
   points: string;
-  category: string;
-  priority: string;
+  trashType: string;
 }
 
-export default function CreateTask() {
+export default function ReportTrash() {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState<TaskFormData>({
+  const [formData, setFormData] = useState<ReportFormData>({
     title: "",
     description: "",
     picture: null,
@@ -24,8 +23,7 @@ export default function CreateTask() {
     latitude: "",
     longitude: "",
     points: "",
-    category: "trash",
-    priority: "medium",
+    trashType: "mixed",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -71,7 +69,7 @@ export default function CreateTask() {
         setError("");
       },
       () => {
-        setError("Failed to get location. Please enable GPS.");
+        setError("Failed to get location. Please enable GPS or enter manually.");
         setLoading(false);
       }
     );
@@ -82,15 +80,15 @@ export default function CreateTask() {
 
     // Validation
     if (!formData.title.trim()) {
-      setError("Please enter a task title");
+      setError("Please enter a location name");
       return;
     }
     if (formData.title.trim().length < 5) {
-      setError("Title must be at least 5 characters");
+      setError("Location name must be at least 5 characters");
       return;
     }
     if (!formData.description.trim()) {
-      setError("Please enter a description");
+      setError("Please describe the trash/waste");
       return;
     }
     if (formData.description.trim().length < 20) {
@@ -102,11 +100,11 @@ export default function CreateTask() {
       return;
     }
     if (!formData.points || isNaN(parseInt(formData.points))) {
-      setError("Please enter valid points value");
+      setError("Please enter reward points (10-500)");
       return;
     }
     if (!formData.picture) {
-      setError("Please upload a picture");
+      setError("Please upload a photo of the trash location");
       return;
     }
 
@@ -116,37 +114,37 @@ export default function CreateTask() {
       setSuccess(true);
       setLoading(false);
       setTimeout(() => {
-        navigate("/user/tasks");
+        navigate("/user/reports");
       }, 2000);
     }, 1500);
   };
 
   return (
     <div className="page">
-      <div className="task-header">
-        <h2>📝 Create New Task</h2>
-        <p>Report trash location and earn points for cleaning</p>
+      <div className="report-header">
+        <h2>♻️ Report Trash Location</h2>
+        <p>Help us clean the environment! Share trash locations and earn rewards when volunteers clean them up.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="task-form-container">
+      <form onSubmit={handleSubmit} className="report-form-container">
         <div className="form-card">
           {error && <div className="form-error">{error}</div>}
           {success && (
             <div className="form-success">
-              Task created successfully! Redirecting...
+              ✅ Report submitted successfully! It will be reviewed by our team. You'll earn ⭐ {formData.points} points when the cleanup is completed. Redirecting...
             </div>
           )}
 
-          {/* Title Field */}
+          {/* Location Name Field */}
           <div className="form-group">
-            <label htmlFor="title">Task Title *</label>
+            <label htmlFor="title">Location Name *</label>
             <input
               type="text"
               id="title"
               name="title"
               value={formData.title}
               onChange={handleChange}
-              placeholder="e.g., Trash near park entrance"
+              placeholder="e.g., Near park entrance, Behind shopping mall"
               disabled={loading}
             />
             <span className="char-count">
@@ -156,13 +154,13 @@ export default function CreateTask() {
 
           {/* Description Field */}
           <div className="form-group">
-            <label htmlFor="description">Description *</label>
+            <label htmlFor="description">Trash Description *</label>
             <textarea
               id="description"
               name="description"
               value={formData.description}
               onChange={handleChange}
-              placeholder="Describe the trash location and type of waste..."
+              placeholder="Describe what type of trash you see and how much. Examples: plastic bags, bottles, broken glass, metal waste, etc."
               rows={5}
               disabled={loading}
             />
@@ -171,9 +169,9 @@ export default function CreateTask() {
             </span>
           </div>
 
-          {/* Picture Upload */}
+          {/* Photo Upload */}
           <div className="form-group">
-            <label htmlFor="picture">Picture *</label>
+            <label htmlFor="picture">Photo of Trash Location *</label>
             <div className="file-input-wrapper">
               <input
                 type="file"
@@ -182,113 +180,100 @@ export default function CreateTask() {
                 onChange={handleImageChange}
                 disabled={loading}
               />
-              <span>Choose picture or take a photo</span>
+              <span>📷 Click to upload or take a photo</span>
             </div>
             {formData.picturePrev && (
               <div className="image-preview">
                 <img src={formData.picturePrev} alt="Preview" />
+                <p className="preview-label">Photo Preview</p>
               </div>
             )}
           </div>
 
-          {/* Category and Priority */}
+          {/* Trash Type and GPS */}
           <div className="form-row">
             <div className="form-group half">
-              <label htmlFor="category">Category *</label>
+              <label htmlFor="trashType">Trash Type *</label>
               <select
-                id="category"
-                name="category"
-                value={formData.category}
+                id="trashType"
+                name="trashType"
+                value={formData.trashType}
                 onChange={handleChange}
                 disabled={loading}
               >
-                <option value="trash">Trash</option>
+                <option value="mixed">Mixed Waste</option>
                 <option value="plastic">Plastic</option>
-                <option value="glass">Glass</option>
-                <option value="metal">Metal</option>
-                <option value="hazardous">Hazardous</option>
-                <option value="other">Other</option>
+                <option value="glass">Glass & Bottles</option>
+                <option value="metal">Metal & Cans</option>
+                <option value="organic">Organic Waste</option>
+                <option value="hazardous">Hazardous Materials</option>
               </select>
             </div>
 
             <div className="form-group half">
-              <label htmlFor="priority">Priority *</label>
-              <select
-                id="priority"
-                name="priority"
-                value={formData.priority}
+              <label>Reward Points (Incentive) *</label>
+              <input
+                type="number"
+                name="points"
+                value={formData.points}
                 onChange={handleChange}
+                placeholder="e.g., 100"
+                min="10"
+                max="500"
                 disabled={loading}
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="urgent">Urgent</option>
-              </select>
+              />
+              <span className="helper-text">Higher points = faster cleanup (recommended: 50-150)</span>
             </div>
           </div>
 
           {/* GPS Location */}
-          <div className="form-row">
-            <div className="form-group half">
-              <label htmlFor="latitude">Latitude *</label>
-              <input
-                type="text"
-                id="latitude"
-                name="latitude"
-                value={formData.latitude}
-                placeholder="Click Get GPS Location"
-                readOnly
-              />
+          <div className="gps-section">
+            <h3>📍 Location Coordinates</h3>
+            <div className="form-row">
+              <div className="form-group half">
+                <label htmlFor="latitude">Latitude *</label>
+                <input
+                  type="text"
+                  id="latitude"
+                  name="latitude"
+                  value={formData.latitude}
+                  placeholder="Click Get Location"
+                  readOnly
+                />
+              </div>
+
+              <div className="form-group half">
+                <label htmlFor="longitude">Longitude *</label>
+                <input
+                  type="text"
+                  id="longitude"
+                  name="longitude"
+                  value={formData.longitude}
+                  placeholder="Click Get Location"
+                  readOnly
+                />
+              </div>
             </div>
 
-            <div className="form-group half">
-              <label htmlFor="longitude">Longitude *</label>
-              <input
-                type="text"
-                id="longitude"
-                name="longitude"
-                value={formData.longitude}
-                placeholder="Click Get GPS Location"
-                readOnly
-              />
-            </div>
-          </div>
-
-          <button
-            type="button"
-            className="btn-gps"
-            onClick={getGPSLocation}
-            disabled={loading}
-          >
-            📍 Get GPS Location
-          </button>
-
-          {/* Points Field */}
-          <div className="form-group">
-            <label htmlFor="points">Reward Points *</label>
-            <input
-              type="number"
-              id="points"
-              name="points"
-              value={formData.points}
-              onChange={handleChange}
-              placeholder="e.g., 50"
-              min="10"
-              max="500"
+            <button
+              type="button"
+              className="btn-gps"
+              onClick={getGPSLocation}
               disabled={loading}
-            />
+            >
+              📍 Get Current Location (GPS)
+            </button>
           </div>
 
           {/* Form Actions */}
           <div className="form-actions">
             <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? "Submitting..." : "🚀 Create Task"}
+              {loading ? "Submitting Report..." : "✅ Submit Report"}
             </button>
             <button
               type="button"
               className="btn-secondary"
-              onClick={() => navigate("/user/tasks")}
+              onClick={() => navigate("/user/reports")}
               disabled={loading}
             >
               Cancel
@@ -298,14 +283,15 @@ export default function CreateTask() {
 
         {/* Info Card */}
         <div className="info-card">
-          <h3>📋 Task Guidelines</h3>
+          <h3>🎯 How It Works</h3>
           <ul>
-            <li>Accurate location is crucial</li>
-            <li>Clear pictures help verification</li>
-            <li>Point value affects employee interest</li>
-            <li>Higher priority = faster completion</li>
-            <li>Tasks are reviewed before approval</li>
-            <li>Approved tasks appear in employee feed</li>
+            <li>📸 <strong>Take a clear photo</strong> showing the trash</li>
+            <li>📍 <strong>Share exact location</strong> using GPS</li>
+            <li>✏️ <strong>Describe the waste</strong> type and quantity</li>
+            <li>⭐ <strong>Set reward points</strong> as incentive</li>
+            <li>⏳ <strong>Wait for approval</strong> from our team</li>
+            <li>👥 <strong>Volunteers cleanup</strong> the location</li>
+            <li>🏆 <strong>Earn points</strong> when completed!</li>
           </ul>
         </div>
       </form>

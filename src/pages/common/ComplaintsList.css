@@ -1,18 +1,14 @@
-.page {
-  padding: 32px 16px;
-  max-width: 1200px;
-  margin: 0 auto;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
-}
-
-.tasks-header {
+/* Complaints List Page */
+.complaints-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 32px;
   padding-bottom: 24px;
   border-bottom: 2px solid rgba(16, 185, 129, 0.1);
 }
 
-.tasks-header h2 {
+.complaints-header h2 {
   font-size: 28px;
   font-weight: 800;
   color: #111827;
@@ -23,13 +19,33 @@
   background-clip: text;
 }
 
-.tasks-header p {
+.complaints-header p {
   color: #6b7280;
   font-size: 16px;
   margin: 0;
 }
 
-.tasks-controls {
+.btn-create {
+  background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3);
+  white-space: nowrap;
+}
+
+.btn-create:hover {
+  opacity: 0.95;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.4);
+}
+
+.complaints-controls {
   display: flex;
   gap: 24px;
   margin-bottom: 32px;
@@ -97,129 +113,109 @@
   font-size: 15px;
 }
 
-.tasks-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 24px;
+.complaints-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.task-card {
+.complaint-card {
   background: white;
   border-radius: 12px;
-  overflow: hidden;
+  padding: 24px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   border: 1px solid rgba(229, 231, 235, 0.5);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  display: flex;
-  flex-direction: column;
-  height: 100%;
 }
 
-.task-card:hover {
+.complaint-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   border-color: rgba(16, 185, 129, 0.2);
 }
 
-.task-image-section {
-  position: relative;
-  width: 100%;
-  height: 200px;
-  overflow: hidden;
-  background: #f3f4f6;
-}
-
-.task-image-section img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.task-card:hover .task-image-section img {
-  transform: scale(1.05);
-}
-
-.task-badges {
-  position: absolute;
-  top: 12px;
-  right: 12px;
+.complaint-header-row {
   display: flex;
-  gap: 8px;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+
+.complaint-title-section h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 8px 0;
+}
+
+.complaint-category {
+  color: #6b7280;
+  font-size: 13px;
+  margin: 0;
+  display: inline-block;
+  background: #f3f4f6;
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+
+.complaint-badges {
+  display: flex;
+  gap: 12px;
+  align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
 
-.badge-unapproved,
-.badge-priority {
+.badge {
   padding: 6px 12px;
   border-radius: 6px;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  backdrop-filter: blur(4px);
 }
 
-.badge-unapproved {
-  background: rgba(239, 68, 68, 0.9);
-  color: white;
+.priority-urgent {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
-.task-content {
-  padding: 20px;
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.task-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.task-header h3 {
-  font-size: 16px;
-  font-weight: 700;
-  color: #111827;
-  margin: 0;
-  flex: 1;
-  line-height: 1.4;
-}
-
-.status-badge {
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-  background: #ecfdf5;
-  color: #065f46;
-}
-
-.task-card.pending .status-badge {
+.priority-high {
   background: #fef3c7;
   color: #92400e;
 }
 
-.task-card.in-progress .status-badge {
+.priority-medium {
   background: #dbeafe;
   color: #0c2d6b;
 }
 
-.task-card.completed .status-badge {
+.priority-low {
   background: #d1fae5;
   color: #065f46;
 }
 
-.task-description {
+.status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-in-review {
+  background: #dbeafe;
+  color: #0c2d6b;
+}
+
+.status-resolved {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.complaint-description {
   color: #6b7280;
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 15px;
+  line-height: 1.6;
   margin: 0 0 16px 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -227,59 +223,44 @@
   overflow: hidden;
 }
 
-.task-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding: 12px 0;
-  border-top: 1px solid #e5e7eb;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.meta-item {
-  color: #6b7280;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.task-footer {
+.complaint-footer {
   display: flex;
   justify-content: space-between;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.complaint-date,
+.complaint-responses {
+  display: flex;
   align-items: center;
-  margin-top: auto;
-}
-
-.points-badge {
-  background: linear-gradient(135deg, #10b981 0%, #047857 100%);
-  color: white;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 700;
-  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
-}
-
-.task-link {
-  color: #10b981;
-  font-weight: 600;
-  font-size: 13px;
-  transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.task-card:hover .task-link {
-  color: #047857;
+  gap: 4px;
 }
 
 @media (max-width: 768px) {
-  .tasks-controls {
+  .complaints-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .complaints-controls {
     flex-direction: column;
     gap: 16px;
   }
 
-  .tasks-grid {
-    grid-template-columns: 1fr;
+  .complaint-header-row {
+    flex-direction: column;
+  }
+
+  .complaint-badges {
+    justify-content: flex-start;
+  }
+
+  .complaint-footer {
+    flex-direction: column;
+    gap: 8px;
   }
 }
