@@ -1,17 +1,9 @@
 import "./ComplaintDetails.css";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 
-interface Response {
-  id: number;
-  author: string;
-  role: string;
-  content: string;
-  createdAt: string;
-}
-
 export default function ComplaintDetails() {
-  const { id } = useParams();
+  // const { id } = useParams();
   const navigate = useNavigate();
   const [replyText, setReplyText] = useState("");
 
@@ -212,25 +204,10 @@ export default function ComplaintDetails() {
                 {Math.floor(
                   (new Date().getTime() -
                     new Date(complaint.createdAt).getTime()) /
-                    (1000 * 60 * 60 * 24)
+                  (1000 * 60 * 60 * 24)
                 )}
               </strong>
             </div>
-          </div>
-
-          <div className="sidebar-card actions">
-            <h3>⚙️ Actions</h3>
-            <button className="action-btn secondary">
-              📎 Attach File
-            </button>
-            <button className="action-btn secondary">
-              🔔 Notify Support
-            </button>
-            {complaint.status === "resolved" && (
-              <button className="action-btn secondary">
-                👍 Mark Helpful
-              </button>
-            )}
           </div>
         </div>
       </div>

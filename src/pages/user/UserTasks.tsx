@@ -1,83 +1,77 @@
 import "./UserTasks.css";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { getUser } from "../../api/users";
 
 interface Task {
-  id: string;
+  id: number;
   title: string;
   description: string;
-  picture: string;
-  latitude: number;
-  longitude: number;
-  points: number;
   category: string;
-  priority: "low" | "medium" | "high" | "urgent";
-  approved: boolean;
-  status: "pending" | "in-progress" | "completed";
+  priority: string;
+  picture: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  point: number | null;
+  status: string;
   createdAt: string;
+}
+
+interface UserTask {
+  userId: number;
+  taskId: number;
+  task: Task;
 }
 
 export default function UserTasks() {
   const navigate = useNavigate();
-  const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "in-progress" | "completed">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const [sortBy, setSortBy] = useState<"recent" | "points">("recent");
+  const [userTasks, setUserTasks] = useState<UserTask[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Mock data
-  const mockTasks: Task[] = [
-    {
-      id: "1",
-      title: "Trash pile near park entrance",
-      description: "Large accumulation of mixed trash near the main entrance of Central Park. Includes plastic bags, bottles, and paper waste.",
-      picture: "/trash.jpg",
-      latitude: 40.785091,
-      longitude: -73.968285,
-      points: 150,
-      category: "trash",
-      priority: "high",
-      approved: true,
-      status: "in-progress",
-      createdAt: "2025-12-12",
-    },
-    {
-      id: "2",
-      title: "Plastic waste behind mall",
-      description: "Scattered plastic waste behind the shopping mall. Mostly takeout containers and shopping bags.",
-      picture: "/trash.jpg",
-      latitude: 40.758896,
-      longitude: -73.985130,
-      points: 100,
-      category: "plastic",
-      priority: "medium",
-      approved: true,
-      status: "completed",
-      createdAt: "2025-12-10",
-    },
-    {
-      id: "3",
-      title: "Glass bottles on river bank",
-      description: "Multiple broken glass bottles scattered along the river bank. Hazardous for pedestrians.",
-      picture: "/trash.jpg",
-      latitude: 40.788988,
-      longitude: -73.968283,
-      points: 200,
-      category: "glass",
-      priority: "urgent",
-      approved: false,
-      status: "pending",
-      createdAt: "2025-12-13",
-    },
-  ];
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const userId = localStorage.getItem("ecology_user_id");
+        if (!userId) {
+          setError("User not logged in");
+          setLoading(false);
+          return;
+        }
+        const response = await getUser(userId);
+        if (response.data && response.data.userTasks) {
+          setUserTasks(response.data.userTasks);
+        }
+      } catch (err) {
+        console.error("Failed to fetch tasks", err);
+        setError("Failed to load tasks");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const filteredTasks = mockTasks.filter((task) => {
+    fetchTasks();
+  }, []);
+
+  const getTaskStatus = (task: Task) => {
+    if (task.status === "approved") return "approved";
+    if (task.status === "rejected") return "rejected";
+    return "pending";
+  };
+
+  const filteredTasks = userTasks.filter((ut) => {
+    const status = getTaskStatus(ut.task);
     if (filterStatus === "all") return true;
-    return task.status === filterStatus;
+    return status === filterStatus;
   });
 
   const sortedTasks = [...filteredTasks].sort((a, b) => {
     if (sortBy === "recent") {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      return new Date(b.task.createdAt).getTime() - new Date(a.task.createdAt).getTime();
     } else {
-      return b.points - a.points;
+      return (b.task.point || 0) - (a.task.point || 0);
     }
   });
 
@@ -104,29 +98,28 @@ export default function UserTasks() {
   const getStatusIcon = (status: string) => {
     const icons: Record<string, string> = {
       pending: "⏳",
-      "in-progress": "⚙️",
-      completed: "✅",
+      approved: "✅",
+      rejected: "❌",
     };
     return icons[status] || "📋";
   };
 
-  const getCategoryIcon = (category: string) => {
-    const icons: Record<string, string> = {
-      trash: "🗑️",
-      plastic: "♻️",
-      glass: "🍾",
-      metal: "🔧",
-      hazardous: "⚠️",
-      other: "📦",
-    };
-    return icons[category] || "📦";
+  const parseDescription = (desc: string) => {
+    const parts = desc.split(": ");
+    if (parts.length > 1) {
+      return { title: parts[0], description: parts.slice(1).join(": ") };
+    }
+    return { title: "Task", description: desc };
   };
+
+  if (loading) return <div className="page loading">Loading tasks...</div>;
+  if (error) return <div className="page error">{error}</div>;
 
   return (
     <div className="page">
       <div className="tasks-header">
-        <h2>📋 My Tasks</h2>
-        <p>View and manage all your reported tasks</p>
+        <h2>📋 My Assigned Tasks</h2>
+        <p>View and manage tasks assigned to you</p>
       </div>
 
       <div className="tasks-controls">
@@ -140,8 +133,7 @@ export default function UserTasks() {
           >
             <option value="all">All Tasks</option>
             <option value="pending">Pending Approval</option>
-            <option value="in-progress">In Progress</option>
-            <option value="completed">Completed</option>
+            <option value="approved">Approved</option>
           </select>
         </div>
 
@@ -162,56 +154,64 @@ export default function UserTasks() {
       {sortedTasks.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">📭</div>
-          <h3>No tasks found</h3>
-          <p>Create a new task to get started!</p>
+          <h3>No assigned tasks</h3>
+          <p>You have no tasks assigned yet.</p>
         </div>
       ) : (
         <div className="tasks-grid">
-          {sortedTasks.map((task) => (
-            <div
-              key={task.id}
-              className={`task-card ${task.status}`}
-              onClick={() => navigate(`/task/${task.id}`)}
-            >
-              <div className="task-image-section">
-                <img src={task.picture} alt={task.title} />
-                <div className="task-badges">
-                  {!task.approved && <span className="badge-unapproved">Pending Review</span>}
-                  <span
-                    className="badge-priority"
-                    style={{
-                      backgroundColor: getPriorityColor(task.priority),
-                      color: getPriorityTextColor(task.priority),
-                    }}
-                  >
-                    {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-                  </span>
+          {sortedTasks.map((ut) => {
+            const task = ut.task;
+            const { title, description, category, priority } = task;
+            const trashType = category || "mixed";
+            const status = getTaskStatus(task);
+            const pictureUrl = task.picture ? `${process.env.REACT_APP_API_URL}${task.picture}` : "/trash.jpg";
+
+            return (
+              <div
+                key={task.id}
+                className={`task-card ${status}`}
+                onClick={() => navigate(`/task/${task.id}`)}
+              >
+                <div className="task-image-section">
+                  <img src={pictureUrl} alt={title} onError={(e) => (e.currentTarget.src = "/trash.jpg")} />
+                  <div className="task-badges">
+                    {task.status === "pending" && <span className="badge-unapproved">Pending Review</span>}
+                    <span
+                      className="badge-priority"
+                      style={{
+                        backgroundColor: getPriorityColor(priority || "medium"),
+                        color: getPriorityTextColor(priority || "medium"),
+                      }}
+                    >
+                      {priority || "Medium"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="task-content">
+                  <div className="task-header">
+                    <h3>{title}</h3>
+                    <span className="status-badge">{getStatusIcon(status)} {status}</span>
+                  </div>
+
+                  <p className="task-description">{description.substring(0, 100)}...</p>
+
+                  <div className="task-meta">
+                    <span className="meta-item">
+                      📦 Trash
+                    </span>
+                    <span className="meta-item">📍 {task.latitude?.toFixed(4)}, {task.longitude?.toFixed(4)}</span>
+                    <span className="meta-item">📅 {new Date(task.createdAt).toLocaleDateString()}</span>
+                  </div>
+
+                  <div className="task-footer">
+                    <span className="points-badge">⭐ {task.point} points</span>
+                    <span className="task-link">View Details →</span>
+                  </div>
                 </div>
               </div>
-
-              <div className="task-content">
-                <div className="task-header">
-                  <h3>{task.title}</h3>
-                  <span className="status-badge">{getStatusIcon(task.status)} {task.status.replace("-", " ")}</span>
-                </div>
-
-                <p className="task-description">{task.description.substring(0, 100)}...</p>
-
-                <div className="task-meta">
-                  <span className="meta-item">
-                    {getCategoryIcon(task.category)} {task.category}
-                  </span>
-                  <span className="meta-item">📍 {task.latitude.toFixed(4)}, {task.longitude.toFixed(4)}</span>
-                  <span className="meta-item">📅 {task.createdAt}</span>
-                </div>
-
-                <div className="task-footer">
-                  <span className="points-badge">⭐ {task.points} points</span>
-                  <span className="task-link">View Details →</span>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

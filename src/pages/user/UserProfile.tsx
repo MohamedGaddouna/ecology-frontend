@@ -1,26 +1,47 @@
 import "./UserProfile.css";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getUser } from "../../api/users";
+
+interface Task {
+  id: number;
+  title: string;
+  description: string;
+  point: number | null;
+  status: string;
+  createdAt: string;
+  picture: string | null;
+}
+
+interface UserTask {
+  userId: number;
+  taskId: number;
+  task: Task;
+}
+
+interface Complain {
+  id: number;
+  description: string;
+  createdAt?: string; // Assuming it might have this
+}
 
 interface UserData {
-  id: string;
+  id: number;
   firstName: string;
   lastName: string;
   email: string;
-  role: "USER" | "EMPLOYEE" | "ADMIN";
-  totalPoints: number;
-  joinedDate: string;
-  profilePicture: string;
-  bio: string;
+  role: string;
+  points: number;
+  complains: Complain[];
+  createdTasks: Task[];
+  userTasks: UserTask[];
 }
 
 interface Statistics {
-  totalTasks: number;
-  completedTasks: number;
-  inProgressTasks: number;
+  totalCreatedTasks: number;
+  approvedTasks: number;
+  pendingTasks: number;
   totalComplaints: number;
-  resolvedComplaints: number;
   totalPoints: number;
-  longestStreak: number;
 }
 
 interface RecentActivity {
@@ -32,63 +53,76 @@ interface RecentActivity {
 }
 
 export default function UserProfile() {
-  const [editMode, setEditMode] = useState(false);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Mock user data
-  const userData: UserData = {
-    id: "user-123",
-    firstName: "John",
-    lastName: "Doe",
-    email: "john.doe@email.com",
-    role: "USER",
-    totalPoints: 450,
-    joinedDate: "2025-01-15",
-    profilePicture: "/profile.jpg",
-    bio: "Passionate about environmental conservation and cleaning up our community.",
-  };
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const userId = localStorage.getItem("ecology_user_id");
+        if (!userId) {
+          setError("User not logged in");
+          setLoading(false);
+          return;
+        }
 
-  // Mock statistics
+        const response = await getUser(userId);
+        setUserData(response.data);
+      } catch (err) {
+        console.error("Failed to fetch user data", err);
+        setError("Failed to load profile");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  if (loading) return <div className="page loading">Loading profile...</div>;
+  if (error) return <div className="page error">{error}</div>;
+  if (!userData) return <div className="page error">User not found</div>;
+
+  // Calculate statistics based on CREATED tasks (tasks the user reported)
+  const totalCreatedTasks = userData.createdTasks.length;
+  const approvedTasks = userData.createdTasks.filter(t => t.status === "approved").length;
+  const pendingTasks = userData.createdTasks.filter(t => t.status === "pending").length;
+  const totalComplaints = userData.complains.length;
+  const totalPoints = userData.points; // From DB, awarded when tasks are approved
+
   const statistics: Statistics = {
-    totalTasks: 24,
-    completedTasks: 18,
-    inProgressTasks: 3,
-    totalComplaints: 5,
-    resolvedComplaints: 4,
-    totalPoints: 450,
-    longestStreak: 12,
+    totalCreatedTasks,
+    approvedTasks,
+    pendingTasks,
+    totalComplaints,
+    totalPoints,
   };
 
-  // Mock recent activity
+  // Generate recent activity from tasks and complains
   const recentActivity: RecentActivity[] = [
-    {
-      id: "1",
-      type: "task",
-      title: "Completed trash cleanup at Central Park",
-      description: "Earned 150 points for completing a high-priority task",
-      date: "2025-12-10",
-    },
-    {
-      id: "2",
-      type: "complaint",
-      title: "Complaint resolved",
-      description: "Your report about plastic waste was reviewed and addressed",
-      date: "2025-12-08",
-    },
-    {
-      id: "3",
-      type: "achievement",
-      title: "🏆 Milestone Achieved",
-      description: "Reached 400 points! Keep up the great work!",
-      date: "2025-12-05",
-    },
-    {
-      id: "4",
-      type: "task",
-      title: "Created new cleanup task",
-      description: "Posted task for glass waste near shopping mall",
-      date: "2025-12-01",
-    },
-  ];
+    ...userData.userTasks.map((ut) => ({
+      id: `task-${ut.taskId}`,
+      type: "task" as const,
+      title: "Task Assigned",
+      description: ut.task.description,
+      date: new Date(ut.task.createdAt).toLocaleDateString(),
+    })),
+    ...userData.createdTasks.map((t) => ({
+      id: `created-${t.id}`,
+      type: "task" as const,
+      title: "Task Created",
+      description: t.description,
+      date: new Date(t.createdAt).toLocaleDateString(),
+    })),
+    ...userData.complains.map((c) => ({
+      id: `complain-${c.id}`,
+      type: "complaint" as const,
+      title: "Complaint Filed",
+      description: c.description,
+      date: "Recent", // Date not in Complain model shown earlier
+    })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
 
   const getRoleColor = (role: string) => {
     const colors: Record<string, string> = {
@@ -117,7 +151,7 @@ export default function UserProfile() {
 
           <div className="profile-info-section">
             <div className="profile-avatar">
-              <img src={userData.profilePicture} alt="Profile" />
+              <img src="/profile.jpg" alt="Profile" />
             </div>
 
             <div className="profile-basic-info">
@@ -128,28 +162,6 @@ export default function UserProfile() {
                 {userData.role}
               </p>
               <p className="profile-email">{userData.email}</p>
-              <p className="profile-joined">
-                Joined on {new Date(userData.joinedDate).toLocaleDateString()}
-              </p>
-
-              {editMode ? (
-                <div className="bio-edit">
-                  <textarea defaultValue={userData.bio} placeholder="Add your bio..." rows={3} />
-                  <div className="bio-buttons">
-                    <button className="btn-save">Save Bio</button>
-                    <button className="btn-cancel" onClick={() => setEditMode(false)}>
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <p className="profile-bio">{userData.bio}</p>
-                  <button className="btn-edit" onClick={() => setEditMode(true)}>
-                    ✏️ Edit Profile
-                  </button>
-                </>
-              )}
             </div>
 
             <div className="profile-quick-stats">
@@ -158,12 +170,8 @@ export default function UserProfile() {
                 <span className="stat-label">Total Points</span>
               </div>
               <div className="quick-stat">
-                <span className="stat-value">🔥 {statistics.longestStreak}</span>
-                <span className="stat-label">Day Streak</span>
-              </div>
-              <div className="quick-stat">
-                <span className="stat-value">✅ {statistics.completedTasks}</span>
-                <span className="stat-label">Completed</span>
+                <span className="stat-value">✅ {statistics.approvedTasks}</span>
+                <span className="stat-label">Approved Tasks</span>
               </div>
             </div>
           </div>
@@ -176,23 +184,23 @@ export default function UserProfile() {
           <div className="stats-grid">
             {/* Tasks Card */}
             <div className="stat-card">
-              <h3>Tasks</h3>
-              <div className="stat-main-value">{statistics.totalTasks}</div>
+              <h3>Reported Tasks</h3>
+              <div className="stat-main-value">{statistics.totalCreatedTasks}</div>
               <div className="stat-details">
                 <div className="detail-row">
-                  <span>Completed</span>
-                  <strong>{statistics.completedTasks}</strong>
+                  <span>Approved</span>
+                  <strong>{statistics.approvedTasks}</strong>
                 </div>
                 <div className="detail-row">
-                  <span>In Progress</span>
-                  <strong>{statistics.inProgressTasks}</strong>
+                  <span>Pending</span>
+                  <strong>{statistics.pendingTasks}</strong>
                 </div>
               </div>
               <div className="stat-progress">
                 <div
                   className="progress-bar"
                   style={{
-                    width: `${(statistics.completedTasks / statistics.totalTasks) * 100}%`,
+                    width: `${(statistics.approvedTasks / statistics.totalCreatedTasks) * 100 || 0}%`,
                   }}
                 ></div>
               </div>
@@ -204,23 +212,9 @@ export default function UserProfile() {
               <div className="stat-main-value">{statistics.totalComplaints}</div>
               <div className="stat-details">
                 <div className="detail-row">
-                  <span>Resolved</span>
-                  <strong>{statistics.resolvedComplaints}</strong>
+                  <span>Total Filed</span>
+                  <strong>{statistics.totalComplaints}</strong>
                 </div>
-                <div className="detail-row">
-                  <span>Pending</span>
-                  <strong>
-                    {statistics.totalComplaints - statistics.resolvedComplaints}
-                  </strong>
-                </div>
-              </div>
-              <div className="stat-progress">
-                <div
-                  className="progress-bar resolved"
-                  style={{
-                    width: `${(statistics.resolvedComplaints / statistics.totalComplaints) * 100 || 0}%`,
-                  }}
-                ></div>
               </div>
             </div>
 
@@ -230,51 +224,24 @@ export default function UserProfile() {
               <div className="stat-main-value">{statistics.totalPoints}</div>
               <div className="stat-details">
                 <div className="detail-row">
-                  <span>Rank</span>
-                  <strong>#42</strong>
+                  <span>Total Earned</span>
+                  <strong>{statistics.totalPoints}</strong>
                 </div>
-                <div className="detail-row">
-                  <span>Level</span>
-                  <strong>Gold ⭐</strong>
-                </div>
-              </div>
-              <div className="stat-progress">
-                <div
-                  className="progress-bar points"
-                  style={{
-                    width: `${Math.min((statistics.totalPoints / 1000) * 100, 100)}%`,
-                  }}
-                ></div>
-              </div>
-            </div>
-
-            {/* Achievement Card */}
-            <div className="stat-card">
-              <h3>Achievements</h3>
-              <div className="stat-main-value">6</div>
-              <div className="stat-details">
-                <div className="detail-row">
-                  <span>Badges</span>
-                  <strong>🏆🌟💚</strong>
-                </div>
-                <div className="detail-row">
-                  <span>Unlocked</span>
-                  <strong>6 of 12</strong>
-                </div>
-              </div>
-              <div className="stat-progress">
-                <div className="progress-bar achievement" style={{ width: "50%" }}></div>
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Recent Activity Section */}
-        <div className="activity-section">
-          <h2>📅 Recent Activity</h2>
+      {/* Recent Activity Section */}
+      <div className="activity-section">
+        <h2>📅 Recent Activity</h2>
 
-          <div className="activity-timeline">
-            {recentActivity.map((activity, index) => (
+        <div className="activity-timeline">
+          {recentActivity.length === 0 ? (
+            <p>No recent activity.</p>
+          ) : (
+            recentActivity.map((activity, index) => (
               <div key={activity.id} className="activity-item">
                 <div className="activity-marker"></div>
                 {index !== recentActivity.length - 1 && <div className="activity-line"></div>}
@@ -288,8 +255,8 @@ export default function UserProfile() {
                   <p className="activity-description">{activity.description}</p>
                 </div>
               </div>
-            ))}
-          </div>
+            ))
+          )}
         </div>
       </div>
     </div>

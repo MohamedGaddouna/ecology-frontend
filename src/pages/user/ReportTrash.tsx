@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./ReportTrash.css";
+import { createTask } from "../../api/tasks";
 
 interface ReportFormData {
   title: string;
@@ -9,7 +10,7 @@ interface ReportFormData {
   picturePrev: string;
   latitude: string;
   longitude: string;
-  points: string;
+
   trashType: string;
 }
 
@@ -22,7 +23,7 @@ export default function ReportTrash() {
     picturePrev: "",
     latitude: "",
     longitude: "",
-    points: "",
+
     trashType: "mixed",
   });
   const [loading, setLoading] = useState(false);
@@ -60,6 +61,7 @@ export default function ReportTrash() {
     setLoading(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        console.log("GPS Position:", pos);
         setFormData((prev) => ({
           ...prev,
           latitude: pos.coords.latitude.toFixed(6),
@@ -68,14 +70,20 @@ export default function ReportTrash() {
         setLoading(false);
         setError("");
       },
-      () => {
+      (err) => {
+        console.error("GPS Error: ", err);
         setError("Failed to get location. Please enable GPS or enter manually.");
         setLoading(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
       }
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validation
@@ -99,24 +107,45 @@ export default function ReportTrash() {
       setError("Please provide GPS coordinates");
       return;
     }
-    if (!formData.points || isNaN(parseInt(formData.points))) {
-      setError("Please enter reward points (10-500)");
-      return;
-    }
+
     if (!formData.picture) {
       setError("Please upload a photo of the trash location");
       return;
     }
 
-    // Simulate submission
+    const userId = localStorage.getItem("ecology_user_id");
+    if (!userId) {
+      setError("User not logged in");
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
+
+    try {
+      const apiFormData = new FormData();
+      apiFormData.append("title", formData.title);
+      apiFormData.append("description", formData.description);
+      apiFormData.append("category", formData.trashType); // Mapping trashType to category
+      apiFormData.append("priority", "medium"); // Default priority
+
+      apiFormData.append("latitude", formData.latitude);
+      apiFormData.append("longitude", formData.longitude);
+      apiFormData.append("approved", "false");
+      apiFormData.append("createdByUserId", userId);
+      apiFormData.append("pictureFile", formData.picture);
+
+      await createTask(apiFormData);
+
       setSuccess(true);
-      setLoading(false);
       setTimeout(() => {
         navigate("/user/reports");
       }, 2000);
-    }, 1500);
+    } catch (err: any) {
+      console.error("Failed to submit report", err);
+      setError(err.response?.data?.message || "Failed to submit report");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -131,7 +160,7 @@ export default function ReportTrash() {
           {error && <div className="form-error">{error}</div>}
           {success && (
             <div className="form-success">
-              ✅ Report submitted successfully! It will be reviewed by our team. You'll earn ⭐ {formData.points} points when the cleanup is completed. Redirecting...
+              ✅ Report submitted successfully! It will be reviewed by our team. Redirecting...
             </div>
           )}
 
@@ -210,20 +239,7 @@ export default function ReportTrash() {
               </select>
             </div>
 
-            <div className="form-group half">
-              <label>Reward Points (Incentive) *</label>
-              <input
-                type="number"
-                name="points"
-                value={formData.points}
-                onChange={handleChange}
-                placeholder="e.g., 100"
-                min="10"
-                max="500"
-                disabled={loading}
-              />
-              <span className="helper-text">Higher points = faster cleanup (recommended: 50-150)</span>
-            </div>
+
           </div>
 
           {/* GPS Location */}
@@ -237,8 +253,8 @@ export default function ReportTrash() {
                   id="latitude"
                   name="latitude"
                   value={formData.latitude}
-                  placeholder="Click Get Location"
-                  readOnly
+                  placeholder="Click Get Location or enter manually"
+                  onChange={handleChange}
                 />
               </div>
 
@@ -249,8 +265,8 @@ export default function ReportTrash() {
                   id="longitude"
                   name="longitude"
                   value={formData.longitude}
-                  placeholder="Click Get Location"
-                  readOnly
+                  placeholder="Click Get Location or enter manually"
+                  onChange={handleChange}
                 />
               </div>
             </div>
@@ -288,7 +304,7 @@ export default function ReportTrash() {
             <li>📸 <strong>Take a clear photo</strong> showing the trash</li>
             <li>📍 <strong>Share exact location</strong> using GPS</li>
             <li>✏️ <strong>Describe the waste</strong> type and quantity</li>
-            <li>⭐ <strong>Set reward points</strong> as incentive</li>
+
             <li>⏳ <strong>Wait for approval</strong> from our team</li>
             <li>👥 <strong>Volunteers cleanup</strong> the location</li>
             <li>🏆 <strong>Earn points</strong> when completed!</li>

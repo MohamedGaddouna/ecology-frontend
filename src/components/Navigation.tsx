@@ -19,7 +19,8 @@ export default function Navigation({
   const menuItems = {
     ADMIN: [
       { label: "📊 Dashboard", path: "/admin" },
-      { label: "� Review Reports", path: "/admin/assign" },
+      { label: "📝 Review Reports", path: "/admin/assign" },
+      { label: "📈 Analytics", path: "/admin/analytics" },
       { label: "👥 Manage Users", path: "/admin/manage-users" },
       { label: "💬 Complaints", path: "/complaints" },
     ],

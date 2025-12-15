@@ -1,57 +1,64 @@
 import "./TaskDetails.css";
 import { useParams, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getTask } from "../../api/tasks";
 
-interface TrashReport {
-  id: string;
+interface Task {
+  id: number;
   title: string;
   description: string;
-  picture: string;
-  latitude: number;
-  longitude: number;
-  points: number;
-  trashType: string;
-  status: "pending-review" | "approved" | "assigned" | "in-progress" | "completed";
+  category: string;
+  priority: string;
+  picture: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  point: number | null;
+  status: string;
   createdAt: string;
-  reportedBy: string;
-  approvedAt?: string;
-  assignedTo?: string;
-  assignedAt?: string;
-  completedAt?: string;
+  createdByUserId: number;
+  createdByUser?: {
+    firstName: string;
+    lastName: string;
+  };
+  userTasks?: {
+    user: {
+      firstName: string;
+      lastName: string;
+    };
+  }[];
 }
 
 export default function TaskDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [acceptLoading, setAcceptLoading] = useState(false);
+  const [task, setTask] = useState<Task | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Mock data - ecology workflow
-  const mockReport: TrashReport = {
-    id: id || "1",
-    title: "Trash pile near park entrance",
-    description:
-      "Large accumulation of mixed trash near the main entrance of Central Park. Includes plastic bags, bottles, paper waste, and some broken items. Located beside the north gate near the fountain.",
-    picture: "/trash.jpg",
-    latitude: 40.785091,
-    longitude: -73.968285,
-    points: 150,
-    trashType: "mixed",
-    status: "in-progress",
-    createdAt: "2025-12-12",
-    reportedBy: "John Doe",
-    approvedAt: "2025-12-13",
-    assignedTo: "Sarah Johnson",
-    assignedAt: "2025-12-13T10:30:00",
-    completedAt: undefined,
-  };
+  useEffect(() => {
+    const fetchTask = async () => {
+      try {
+        if (!id) return;
+        const response = await getTask(id);
+        setTask(response.data);
+      } catch (err) {
+        console.error("Failed to fetch task", err);
+        setError("Failed to load task details");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const handleAcceptTask = () => {
-    setAcceptLoading(true);
-    setTimeout(() => {
-      // Simulate accepting task
-      alert("Cleanup started! You'll earn ⭐ " + mockReport.points + " points when completed.");
-      navigate("/user/reports");
-    }, 1500);
+    fetchTask();
+  }, [id]);
+
+
+
+  const getStatus = (task: Task): "pending-review" | "assigned" | "approved" | "completed" | "rejected" => {
+    if (task.status === "rejected") return "rejected";
+    if (task.status === "pending") return "pending-review";
+    if (task.userTasks && task.userTasks.length > 0) return "assigned"; // Or in-progress
+    return "approved";
   };
 
   const getStatusColor = (status: string) => {
@@ -61,6 +68,7 @@ export default function TaskDetails() {
       assigned: "#dbeafe",
       "in-progress": "#ede9fe",
       completed: "#d1fae5",
+      rejected: "#fee2e2",
     };
     return colors[status] || "#f3f4f6";
   };
@@ -72,6 +80,7 @@ export default function TaskDetails() {
       assigned: "#0c2d6b",
       "in-progress": "#5b21b6",
       completed: "#065f46",
+      rejected: "#991b1b",
     };
     return colors[status] || "#6b7280";
   };
@@ -86,7 +95,7 @@ export default function TaskDetails() {
       mixed: "🗑️",
       other: "📦",
     };
-    return icons[type] || "📦";
+    return icons[type.toLowerCase()] || "📦";
   };
 
   const getStatusIcon = (status: string) => {
@@ -96,25 +105,29 @@ export default function TaskDetails() {
       assigned: "👤",
       "in-progress": "⚙️",
       completed: "🎉",
+      rejected: "❌",
     };
     return icons[status] || "📋";
   };
 
-  const getStatusMessage = (status: string) => {
-    const messages: Record<string, string> = {
-      "pending-review": "Waiting for admin review...",
-      approved: "✅ Approved! Waiting for assignment...",
-      assigned: `👤 Assigned to ${mockReport.assignedTo} - Waiting to start...`,
-      "in-progress": `⚙️ ${mockReport.assignedTo} is cleaning this up now...`,
-      completed: `🎉 Completed! You earned ⭐ ${mockReport.points} points!`,
-    };
-    return messages[status] || "Unknown status";
-  };
+  if (loading) return <div className="page loading">Loading task details...</div>;
+  if (error) return <div className="page error">{error}</div>;
+  if (!task) return <div className="page error">Task not found</div>;
+
+  // const { title, description, trashType } = parseDescription(task.description);
+  const { title, description, category } = task;
+  const trashType = category || "mixed";
+  const status = getStatus(task);
+  const pictureUrl = task.picture ? `${process.env.REACT_APP_API_URL}${task.picture}` : "/trash.jpg";
+  const reportedBy = task.createdByUser ? `${task.createdByUser.firstName} ${task.createdByUser.lastName}` : "Unknown";
+  const assignedTo = task.userTasks && task.userTasks.length > 0
+    ? `${task.userTasks[0].user.firstName} ${task.userTasks[0].user.lastName}`
+    : null;
 
   return (
     <div className="page">
-      <button className="back-btn" onClick={() => navigate("/user/reports")}>
-        ← Back to Reports
+      <button className="back-btn" onClick={() => navigate(-1)}>
+        ← Back
       </button>
 
       <div className="task-details-container">
@@ -122,31 +135,25 @@ export default function TaskDetails() {
           {/* Report Header */}
           <div className="task-header-section">
             <div>
-              <h1>{mockReport.title}</h1>
-              <p className="task-meta">{getTrashTypeIcon(mockReport.trashType)} {mockReport.trashType} • Reported on {mockReport.createdAt}</p>
+              <h1>{title}</h1>
+              <p className="task-meta">{getTrashTypeIcon(trashType)} {trashType} • Reported on {new Date(task.createdAt).toLocaleDateString()}</p>
             </div>
             <div className="status-badges">
               <span
                 className="status-badge"
                 style={{
-                  backgroundColor: getStatusColor(mockReport.status),
-                  color: getStatusTextColor(mockReport.status),
+                  backgroundColor: getStatusColor(status),
+                  color: getStatusTextColor(status),
                 }}
               >
-                {getStatusIcon(mockReport.status)} {mockReport.status.replace(/-/g, " ").toUpperCase()}
+                {getStatusIcon(status)} {status.replace(/-/g, " ").toUpperCase()}
               </span>
             </div>
           </div>
 
           {/* Trash Image */}
           <div className="task-image">
-            <img src={mockReport.picture} alt={mockReport.title} />
-          </div>
-
-          {/* Status Flow */}
-          <div className="status-flow">
-            <h2>📋 Cleanup Progress</h2>
-            <p className="status-message">{getStatusMessage(mockReport.status)}</p>
+            <img src={pictureUrl} alt={title} onError={(e) => (e.currentTarget.src = "/trash.jpg")} />
           </div>
 
           {/* Report Information Grid */}
@@ -154,28 +161,28 @@ export default function TaskDetails() {
             <div className="info-item">
               <span className="info-label">Location (GPS)</span>
               <span className="info-value">
-                📍 {mockReport.latitude.toFixed(6)}, {mockReport.longitude.toFixed(6)}
+                📍 {task.latitude?.toFixed(6)}, {task.longitude?.toFixed(6)}
               </span>
             </div>
             <div className="info-item">
               <span className="info-label">Reward Points</span>
-              <span className="info-value points">⭐ {mockReport.points} points</span>
+              <span className="info-value points">⭐ {task.point} points</span>
             </div>
             <div className="info-item">
               <span className="info-label">Reported By</span>
-              <span className="info-value">{mockReport.reportedBy}</span>
+              <span className="info-value">{reportedBy}</span>
             </div>
             <div className="info-item">
               <span className="info-label">Assigned To</span>
-              <span className="info-value">{mockReport.assignedTo || "Not yet assigned"}</span>
+              <span className="info-value">{assignedTo || "Not yet assigned"}</span>
             </div>
             <div className="info-item">
               <span className="info-label">Trash Type</span>
-              <span className="info-value">{getTrashTypeIcon(mockReport.trashType)} {mockReport.trashType}</span>
+              <span className="info-value">{getTrashTypeIcon(trashType)} {trashType}</span>
             </div>
             <div className="info-item">
               <span className="info-label">Current Status</span>
-              <span className="info-value">{getStatusIcon(mockReport.status)} {mockReport.status}</span>
+              <span className="info-value">{getStatusIcon(status)} {status}</span>
             </div>
           </div>
 
@@ -183,90 +190,34 @@ export default function TaskDetails() {
           <div className="description-section">
             <h2>📝 Description</h2>
             <div className="description-box">
-              <p>{mockReport.description}</p>
+              <p>{description}</p>
             </div>
           </div>
 
           {/* Map Section */}
           <div className="map-section">
             <h2>📍 Location Map</h2>
-            <div className="map-placeholder">
-              <p>
-                Location: {mockReport.latitude.toFixed(4)}, {mockReport.longitude.toFixed(4)}
-              </p>
-              <p style={{ fontSize: "12px", color: "#9ca3af" }}>
-                (Map integration would go here)
-              </p>
+            <div className="map-container">
+              {task.latitude && task.longitude ? (
+                <iframe
+                  title="Trash Location"
+                  width="100%"
+                  height="400"
+                  frameBorder="0"
+                  scrolling="no"
+                  marginHeight={0}
+                  marginWidth={0}
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${task.longitude - 0.01}%2C${task.latitude - 0.01}%2C${task.longitude + 0.01}%2C${task.latitude + 0.01}&layer=mapnik&marker=${task.latitude}%2C${task.longitude}`}
+                  style={{ border: "1px solid #e5e7eb", borderRadius: "8px" }}
+                ></iframe>
+              ) : (
+                <div className="map-placeholder">
+                  <p>Location coordinates not available</p>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Workflow Timeline */}
-          <div className="workflow-section">
-            <h2>⏱️ Workflow Timeline</h2>
-            <div className="timeline">
-              <div className={`timeline-item ${["pending-review", "approved", "assigned", "in-progress", "completed"].includes(mockReport.status) ? "completed" : ""}`}>
-                <span className="timeline-icon">📢</span>
-                <div>
-                  <p className="timeline-label">Reported</p>
-                  <p className="timeline-date">{mockReport.createdAt}</p>
-                </div>
-              </div>
-              <div className={`timeline-item ${["approved", "assigned", "in-progress", "completed"].includes(mockReport.status) ? "completed" : ""}`}>
-                <span className="timeline-icon">✅</span>
-                <div>
-                  <p className="timeline-label">Admin Approved</p>
-                  <p className="timeline-date">{mockReport.approvedAt || "Pending..."}</p>
-                </div>
-              </div>
-              <div className={`timeline-item ${["assigned", "in-progress", "completed"].includes(mockReport.status) ? "completed" : ""}`}>
-                <span className="timeline-icon">👤</span>
-                <div>
-                  <p className="timeline-label">Assigned to {mockReport.assignedTo}</p>
-                  <p className="timeline-date">{mockReport.assignedAt ? mockReport.assignedAt.split("T")[0] : "Pending..."}</p>
-                </div>
-              </div>
-              <div className={`timeline-item ${["in-progress", "completed"].includes(mockReport.status) ? "completed" : ""}`}>
-                <span className="timeline-icon">⚙️</span>
-                <div>
-                  <p className="timeline-label">Cleanup in Progress</p>
-                  <p className="timeline-date">{mockReport.status === "in-progress" || mockReport.status === "completed" ? "In progress..." : "Waiting..."}</p>
-                </div>
-              </div>
-              <div className={`timeline-item ${mockReport.status === "completed" ? "completed" : ""}`}>
-                <span className="timeline-icon">🎉</span>
-                <div>
-                  <p className="timeline-label">Completed - You Earned ⭐ {mockReport.points} Points!</p>
-                  <p className="timeline-date">{mockReport.completedAt || "Not yet completed"}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="action-buttons">
-            {mockReport.status === "pending-review" && (
-              <p className="info-message">⏳ Waiting for admin review...</p>
-            )}
-            {mockReport.status === "approved" && (
-              <p className="info-message">✅ Your report has been approved! Waiting for assignment...</p>
-            )}
-            {mockReport.status === "assigned" && (
-              <p className="info-message">👤 {mockReport.assignedTo} has been assigned. Cleanup will start soon!</p>
-            )}
-            {mockReport.status === "in-progress" && (
-              <button className="btn-primary" onClick={() => alert("Cleanup is in progress!")}>
-                ⚙️ View Cleanup Progress
-              </button>
-            )}
-            {mockReport.status === "completed" && (
-              <button className="btn-primary" disabled>
-                🎉 Completed - You earned {mockReport.points} points!
-              </button>
-            )}
-            <button className="btn-secondary" onClick={() => navigate("/user/reports")}>
-              Back to Reports
-            </button>
-          </div>
         </div>
 
         {/* Sidebar */}
@@ -277,20 +228,20 @@ export default function TaskDetails() {
             <div className="quick-info">
               <div className="info-row">
                 <span>Reported By:</span>
-                <strong>{mockReport.reportedBy}</strong>
+                <strong>{reportedBy}</strong>
               </div>
               <div className="info-row">
                 <span>Reward Points:</span>
-                <strong style={{ color: "#10b981" }}>+{mockReport.points}</strong>
+                <strong style={{ color: "#10b981" }}>+{task.point}</strong>
               </div>
               <div className="info-row">
                 <span>Reported:</span>
-                <strong>{mockReport.createdAt}</strong>
+                <strong>{new Date(task.createdAt).toLocaleDateString()}</strong>
               </div>
               <div className="info-row">
                 <span>Status:</span>
-                <strong className={mockReport.status === "completed" ? "completed" : "pending"}>
-                  {getStatusIcon(mockReport.status)} {mockReport.status}
+                <strong className={status === "completed" ? "completed" : "pending"}>
+                  {getStatusIcon(status)} {status}
                 </strong>
               </div>
             </div>
@@ -301,7 +252,7 @@ export default function TaskDetails() {
             <h3>Trash Type</h3>
             <div className="category-info">
               <p style={{ margin: "0 0 8px 0" }}>
-                {getTrashTypeIcon(mockReport.trashType)} {mockReport.trashType.toUpperCase()}
+                {getTrashTypeIcon(trashType)} {trashType.toUpperCase()}
               </p>
               <p
                 style={{
@@ -311,7 +262,7 @@ export default function TaskDetails() {
                   lineHeight: "1.5",
                 }}
               >
-                This is a {mockReport.trashType} waste cleanup. Our volunteers will handle proper sorting and disposal.
+                This is a {trashType} waste cleanup. Our volunteers will handle proper sorting and disposal.
               </p>
             </div>
           </div>

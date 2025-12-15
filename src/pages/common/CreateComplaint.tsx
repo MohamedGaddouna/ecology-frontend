@@ -1,20 +1,20 @@
 import "./CreateComplaint.css";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { createComplain } from "../../api/complains";
 
 export default function CreateComplaint() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    category: "general",
-    priority: "medium",
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     setFormData({
       ...formData,
@@ -22,7 +22,7 @@ export default function CreateComplaint() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -41,10 +41,29 @@ export default function CreateComplaint() {
       return;
     }
 
-    setSuccess("Complaint submitted successfully!");
-    setTimeout(() => {
-      navigate("/complaints");
-    }, 1500);
+    const userId = localStorage.getItem("ecology_user_id");
+    if (!userId) {
+      setError("User not logged in");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await createComplain({
+        title: formData.title,
+        description: formData.description,
+        userId: parseInt(userId),
+      });
+      setSuccess("Complaint submitted successfully!");
+      setTimeout(() => {
+        navigate("/complaints");
+      }, 1500);
+    } catch (err) {
+      console.error("Failed to submit complaint", err);
+      setError("Failed to submit complaint. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -69,42 +88,11 @@ export default function CreateComplaint() {
                 value={formData.title}
                 onChange={handleChange}
                 maxLength={100}
+                disabled={loading}
               />
               <span className="char-count">
                 {formData.title.length}/100
               </span>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group half">
-                <label>Category</label>
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                >
-                  <option value="general">General Issue</option>
-                  <option value="technical">Technical Problem</option>
-                  <option value="task">Task Related</option>
-                  <option value="user">User Behavior</option>
-                  <option value="safety">Safety Concern</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-
-              <div className="form-group half">
-                <label>Priority</label>
-                <select
-                  name="priority"
-                  value={formData.priority}
-                  onChange={handleChange}
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="urgent">Urgent</option>
-                </select>
-              </div>
             </div>
 
             <div className="form-group">
@@ -116,6 +104,7 @@ export default function CreateComplaint() {
                 onChange={handleChange}
                 maxLength={2000}
                 rows={8}
+                disabled={loading}
               />
               <span className="char-count">
                 {formData.description.length}/2000
@@ -127,11 +116,12 @@ export default function CreateComplaint() {
                 type="button"
                 className="btn-secondary"
                 onClick={() => navigate("/complaints")}
+                disabled={loading}
               >
                 Cancel
               </button>
-              <button type="submit" className="btn-primary">
-                Submit Complaint
+              <button type="submit" className="btn-primary" disabled={loading}>
+                {loading ? "Submitting..." : "Submit Complaint"}
               </button>
             </div>
           </form>

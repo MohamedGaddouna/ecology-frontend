@@ -1,93 +1,77 @@
 import "./MyReports.css";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { getUser } from "../../api/users";
 
-interface Report {
-  id: string;
+interface Task {
+  id: number;
   title: string;
   description: string;
-  picture: string;
-  latitude: number;
-  longitude: number;
-  points: number;
-  trashType: string;
-  status: "pending-review" | "approved" | "assigned" | "in-progress" | "completed";
-  reportedAt: string;
-  approvedAt?: string;
-  completedAt?: string;
-  assignedTo?: string;
-  pointsEarned: boolean;
+  category: string;
+  priority: string;
+  picture: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  point: number | null;
+  approved: string;
+  createdAt: string;
 }
 
 export default function MyReports() {
   const navigate = useNavigate();
-  const [filterStatus, setFilterStatus] = useState<"all" | "pending-review" | "approved" | "assigned" | "in-progress" | "completed">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const [sortBy, setSortBy] = useState<"recent" | "points">("recent");
+  const [reports, setReports] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Mock data
-  const mockReports: Report[] = [
-    {
-      id: "1",
-      title: "Trash pile near park entrance",
-      description: "Large accumulation of mixed trash including plastic bags, bottles, and paper waste scattered near the main entrance.",
-      picture: "/trash.jpg",
-      latitude: 40.785091,
-      longitude: -73.968285,
-      points: 150,
-      trashType: "mixed",
-      status: "completed",
-      reportedAt: "2025-12-10",
-      approvedAt: "2025-12-10",
-      completedAt: "2025-12-12",
-      assignedTo: "Sarah Johnson",
-      pointsEarned: true,
-    },
-    {
-      id: "2",
-      title: "Plastic waste behind mall",
-      description: "Scattered plastic waste and takeout containers behind the shopping mall. Mostly shopping bags and food packaging.",
-      picture: "/trash.jpg",
-      latitude: 40.758896,
-      longitude: -73.985130,
-      points: 100,
-      trashType: "plastic",
-      status: "in-progress",
-      reportedAt: "2025-12-08",
-      approvedAt: "2025-12-08",
-      assignedTo: "Mike Chen",
-      pointsEarned: false,
-    },
-    {
-      id: "3",
-      title: "Glass bottles on river bank",
-      description: "Multiple broken glass bottles scattered along the river bank. Hazardous for pedestrians and wildlife.",
-      picture: "/trash.jpg",
-      latitude: 40.788988,
-      longitude: -73.968283,
-      points: 200,
-      trashType: "glass",
-      status: "pending-review",
-      reportedAt: "2025-12-13",
-      pointsEarned: false,
-    },
-  ];
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        const userId = localStorage.getItem("ecology_user_id");
+        if (!userId) {
+          setError("User not logged in");
+          setLoading(false);
+          return;
+        }
+        const response = await getUser(userId);
+        if (response.data && response.data.createdTasks) {
+          setReports(response.data.createdTasks);
+        }
+      } catch (err) {
+        console.error("Failed to fetch reports", err);
+        setError("Failed to load reports");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const filteredReports = mockReports.filter((report) => {
+    fetchReports();
+  }, []);
+
+  const getReportStatus = (report: Task) => {
+    if (report.approved === "accepted") return "approved";
+    if (report.approved === "rejected") return "rejected";
+    return "pending";
+  };
+
+  const filteredReports = reports.filter((report) => {
+    const status = getReportStatus(report);
     if (filterStatus === "all") return true;
-    return report.status === filterStatus;
+    return status === filterStatus;
   });
 
   const sortedReports = [...filteredReports].sort((a, b) => {
     if (sortBy === "recent") {
-      return new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime();
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     } else {
-      return b.points - a.points;
+      return (b.point || 0) - (a.point || 0);
     }
   });
 
   const getStatusInfo = (status: string) => {
     const statuses: Record<string, { icon: string; label: string; color: string; bg: string; text: string }> = {
-      "pending-review": {
+      pending: {
         icon: "⏳",
         label: "Pending Review",
         color: "#f59e0b",
@@ -101,61 +85,19 @@ export default function MyReports() {
         bg: "#d1fae5",
         text: "#065f46",
       },
-      assigned: {
-        icon: "👤",
-        label: "Assigned",
-        color: "#3b82f6",
-        bg: "#dbeafe",
-        text: "#0c2d6b",
-      },
-      "in-progress": {
-        icon: "⚙️",
-        label: "In Progress",
-        color: "#8b5cf6",
-        bg: "#ede9fe",
-        text: "#5b21b6",
-      },
-      completed: {
-        icon: "🎉",
-        label: "Completed",
-        color: "#10b981",
-        bg: "#d1fae5",
-        text: "#065f46",
+      rejected: {
+        icon: "❌",
+        label: "Rejected",
+        color: "#ef4444",
+        bg: "#fee2e2",
+        text: "#991b1b",
       },
     };
-    return statuses[status] || statuses.approved;
+    return statuses[status] || statuses.pending;
   };
 
-  const getTrashIcon = (type: string) => {
-    const icons: Record<string, string> = {
-      mixed: "🗑️",
-      plastic: "♻️",
-      glass: "🍾",
-      metal: "🔧",
-      organic: "🌿",
-      hazardous: "⚠️",
-    };
-    return icons[type] || "📦";
-  };
-
-  const getStatusMessage = (report: Report) => {
-    switch (report.status) {
-      case "pending-review":
-        return "Waiting for admin review...";
-      case "approved":
-        return "✅ Approved! Waiting for assignment...";
-      case "assigned":
-        return `👤 Assigned to ${report.assignedTo} - Waiting to start...`;
-      case "in-progress":
-        return `⚙️ ${report.assignedTo} is cleaning up now...`;
-      case "completed":
-        return report.pointsEarned
-          ? `🎉 Completed! You earned ⭐ ${report.points} points!`
-          : `✅ Completed on ${report.completedAt}`;
-      default:
-        return "Unknown status";
-    }
-  };
+  if (loading) return <div className="page loading">Loading reports...</div>;
+  if (error) return <div className="page error">{error}</div>;
 
   return (
     <div className="page">
@@ -174,11 +116,8 @@ export default function MyReports() {
             className="filter-select"
           >
             <option value="all">All Reports</option>
-            <option value="pending-review">Pending Review</option>
+            <option value="pending">Pending Review</option>
             <option value="approved">Approved</option>
-            <option value="assigned">Assigned</option>
-            <option value="in-progress">In Progress</option>
-            <option value="completed">Completed</option>
           </select>
         </div>
 
@@ -205,15 +144,19 @@ export default function MyReports() {
       ) : (
         <div className="reports-grid">
           {sortedReports.map((report) => {
-            const statusInfo = getStatusInfo(report.status);
+            const status = getReportStatus(report);
+            const statusInfo = getStatusInfo(status);
+            const { title, description, category } = report;
+            const pictureUrl = report.picture ? `${process.env.REACT_APP_API_URL}${report.picture}` : "/trash.jpg";
+
             return (
               <div
                 key={report.id}
-                className={`report-card ${report.status}`}
-                onClick={() => navigate(`/report/${report.id}`)}
+                className={`report-card ${status}`}
+                onClick={() => navigate(`/task/${report.id}`)}
               >
                 <div className="report-image-section">
-                  <img src={report.picture} alt={report.title} />
+                  <img src={pictureUrl} alt={title} onError={(e) => (e.currentTarget.src = "/trash.jpg")} />
                   <div className="report-badges">
                     <span
                       className="badge-status"
@@ -229,26 +172,22 @@ export default function MyReports() {
 
                 <div className="report-content">
                   <div className="report-header">
-                    <h3>{report.title}</h3>
+                    <h3>{title}</h3>
                   </div>
 
-                  <p className="report-description">{report.description.substring(0, 100)}...</p>
+                  <p className="report-description">{description.substring(0, 100)}...</p>
 
                   <div className="report-meta">
                     <span className="meta-item">
-                      {getTrashIcon(report.trashType)} {report.trashType}
+                      📦 Trash
                     </span>
-                    <span className="meta-item">📍 {report.latitude.toFixed(4)}, {report.longitude.toFixed(4)}</span>
-                    <span className="meta-item">📅 {report.reportedAt}</span>
-                  </div>
-
-                  <div className="status-message">
-                    {getStatusMessage(report)}
+                    <span className="meta-item">📍 {report.latitude?.toFixed(4)}, {report.longitude?.toFixed(4)}</span>
+                    <span className="meta-item">📅 {new Date(report.createdAt).toLocaleDateString()}</span>
                   </div>
 
                   <div className="report-footer">
                     <span className="points-badge">
-                      ⭐ {report.pointsEarned ? `+${report.points}` : report.points} points
+                      ⭐ {report.point} points
                     </span>
                     <span className="report-link">View Details →</span>
                   </div>

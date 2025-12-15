@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./CreateTask.css";
+import { createTask } from "../../api/tasks";
 
 interface TaskFormData {
   title: string;
@@ -9,7 +10,7 @@ interface TaskFormData {
   picturePrev: string;
   latitude: string;
   longitude: string;
-  points: string;
+
   category: string;
   priority: string;
 }
@@ -23,7 +24,7 @@ export default function CreateTask() {
     picturePrev: "",
     latitude: "",
     longitude: "",
-    points: "",
+
     category: "trash",
     priority: "medium",
   });
@@ -62,6 +63,7 @@ export default function CreateTask() {
     setLoading(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        console.log("GPS Position:", pos);
         setFormData((prev) => ({
           ...prev,
           latitude: pos.coords.latitude.toFixed(6),
@@ -77,7 +79,7 @@ export default function CreateTask() {
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validation
@@ -101,24 +103,45 @@ export default function CreateTask() {
       setError("Please provide GPS coordinates");
       return;
     }
-    if (!formData.points || isNaN(parseInt(formData.points))) {
-      setError("Please enter valid points value");
-      return;
-    }
+
     if (!formData.picture) {
       setError("Please upload a picture");
       return;
     }
 
-    // Simulate submission
+    const userId = localStorage.getItem("ecology_user_id");
+    if (!userId) {
+      setError("User not logged in");
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
+
+    try {
+      const apiFormData = new FormData();
+      // Combine title and description or just use description as backend only has description
+      // Backend Task model has description. CreateTaskRequest has description.
+      // I'll prepend title to description to keep it.
+      apiFormData.append("description", `${formData.title}: ${formData.description}`);
+
+      apiFormData.append("latitude", formData.latitude);
+      apiFormData.append("longitude", formData.longitude);
+      apiFormData.append("approved", "pending"); // Default to pending
+      apiFormData.append("createdByUserId", userId);
+      apiFormData.append("pictureFile", formData.picture);
+
+      await createTask(apiFormData);
+
       setSuccess(true);
-      setLoading(false);
       setTimeout(() => {
         navigate("/user/tasks");
       }, 2000);
-    }, 1500);
+    } catch (err: any) {
+      console.error("Failed to create task", err);
+      setError(err.response?.data?.message || "Failed to create task");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -237,8 +260,8 @@ export default function CreateTask() {
                 id="latitude"
                 name="latitude"
                 value={formData.latitude}
-                placeholder="Click Get GPS Location"
-                readOnly
+                placeholder="Click Get GPS Location or enter manually"
+                onChange={handleChange}
               />
             </div>
 
@@ -249,8 +272,8 @@ export default function CreateTask() {
                 id="longitude"
                 name="longitude"
                 value={formData.longitude}
-                placeholder="Click Get GPS Location"
-                readOnly
+                placeholder="Click Get GPS Location or enter manually"
+                onChange={handleChange}
               />
             </div>
           </div>
@@ -264,21 +287,7 @@ export default function CreateTask() {
             📍 Get GPS Location
           </button>
 
-          {/* Points Field */}
-          <div className="form-group">
-            <label htmlFor="points">Reward Points *</label>
-            <input
-              type="number"
-              id="points"
-              name="points"
-              value={formData.points}
-              onChange={handleChange}
-              placeholder="e.g., 50"
-              min="10"
-              max="500"
-              disabled={loading}
-            />
-          </div>
+
 
           {/* Form Actions */}
           <div className="form-actions">

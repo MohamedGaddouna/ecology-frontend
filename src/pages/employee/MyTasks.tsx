@@ -1,6 +1,7 @@
 import "./MyTasks.css";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { getUser } from "../../api/users";
 
 interface CleanupTask {
   id: string;
@@ -22,62 +23,62 @@ export default function MyTasks() {
   const navigate = useNavigate();
   const [filterStatus, setFilterStatus] = useState<"all" | "assigned" | "in-progress" | "completed">("all");
   const [sortBy, setSortBy] = useState<"recent" | "points">("recent");
+  const [tasks, setTasks] = useState<CleanupTask[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Mock cleanup tasks assigned to this employee
-  const mockTasks: CleanupTask[] = [
-    {
-      id: "1",
-      title: "Trash pile near park entrance",
-      description: "Large accumulation of mixed trash including plastic bags, bottles, and paper waste scattered near the main entrance.",
-      picture: "/trash.jpg",
-      latitude: 40.785091,
-      longitude: -73.968285,
-      points: 150,
-      trashType: "mixed",
-      status: "in-progress",
-      reportedBy: "John Doe",
-      reportedAt: "2025-12-10",
-      assignedAt: "2025-12-11",
-    },
-    {
-      id: "2",
-      title: "Plastic waste behind mall",
-      description: "Scattered plastic waste and takeout containers. Mostly shopping bags and food packaging.",
-      picture: "/trash.jpg",
-      latitude: 40.758896,
-      longitude: -73.985130,
-      points: 100,
-      trashType: "plastic",
-      status: "assigned",
-      reportedBy: "Sarah Smith",
-      reportedAt: "2025-12-08",
-      assignedAt: "2025-12-12",
-    },
-    {
-      id: "3",
-      title: "Glass bottles on river bank",
-      description: "Multiple broken glass bottles scattered along the river bank. Hazardous for pedestrians and wildlife.",
-      picture: "/trash.jpg",
-      latitude: 40.788988,
-      longitude: -73.968283,
-      points: 200,
-      trashType: "glass",
-      status: "completed",
-      reportedBy: "Mike Johnson",
-      reportedAt: "2025-12-09",
-      assignedAt: "2025-12-09",
-      completedAt: "2025-12-13",
-    },
-  ];
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const userId = localStorage.getItem("ecology_user_id");
+        if (!userId) {
+          setError("User not logged in");
+          setLoading(false);
+          return;
+        }
 
-  const filteredTasks = mockTasks.filter((task) => {
+        const response = await getUser(userId);
+        if (response.data && response.data.userTasks) {
+          // Map API response to CleanupTask interface
+          const mappedTasks: CleanupTask[] = response.data.userTasks.map((ut: any) => {
+            const task = ut.task;
+            return {
+              id: task.id.toString(),
+              title: task.title,
+              description: task.description,
+              picture: task.picture ? `${process.env.REACT_APP_API_URL}${task.picture}` : "/trash.jpg",
+              latitude: task.latitude || 0,
+              longitude: task.longitude || 0,
+              points: task.point || 0,
+              trashType: task.category || "mixed",
+              status: task.status ? "assigned" : "assigned", // Default to assigned as we don't have granular status yet
+              reportedBy: "Unknown", // Backend doesn't provide this in the current include chain
+              reportedAt: new Date(task.createdAt).toLocaleDateString(),
+              assignedAt: new Date().toLocaleDateString(), // Placeholder
+            };
+          });
+          setTasks(mappedTasks);
+        }
+      } catch (err) {
+        console.error("Failed to fetch tasks", err);
+        setError("Failed to load tasks");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTasks();
+  }, []);
+
+  const filteredTasks = tasks.filter((task) => {
     if (filterStatus === "all") return true;
     return task.status === filterStatus;
   });
 
   const sortedTasks = [...filteredTasks].sort((a, b) => {
     if (sortBy === "recent") {
-      return new Date(b.assignedAt).getTime() - new Date(a.assignedAt).getTime();
+      // Simple string comparison for now, ideally parse dates
+      return b.id.localeCompare(a.id);
     } else {
       return b.points - a.points;
     }
@@ -100,7 +101,7 @@ export default function MyTasks() {
       metal: "🔧",
       hazardous: "⚠️",
     };
-    return icons[type] || "📦";
+    return icons[type.toLowerCase()] || "📦";
   };
 
   const getStatusMessage = (status: string) => {
@@ -115,6 +116,9 @@ export default function MyTasks() {
         return "Unknown status";
     }
   };
+
+  if (loading) return <div className="page loading">Loading tasks...</div>;
+  if (error) return <div className="page error">{error}</div>;
 
   return (
     <div className="page">
@@ -168,7 +172,7 @@ export default function MyTasks() {
               onClick={() => navigate(`/cleanup/${task.id}`)}
             >
               <div className="task-image-section">
-                <img src={task.picture} alt={task.title} />
+                <img src={task.picture} alt={task.title} onError={(e) => (e.currentTarget.src = "/trash.jpg")} />
                 <div className="task-badges">
                   <span className="badge-status">
                     {getStatusIcon(task.status)} {task.status.replace("-", " ")}
